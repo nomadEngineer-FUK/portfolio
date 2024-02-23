@@ -1,0 +1,191 @@
+/**
+ * 下記２パターンに該当する請求データをスプシに転記し、毎週月曜日の午前中にchatworkへリマインド
+ * 　１．未払い（※１）　かつ　支払期日を超過　している
+ * 　２．未払い　かつ　月中払い（※２）
+ * 
+ * ★未払いである
+ *    ├ No.1：支払期日を超過している・・・リマインド対象
+ *    └ 支払期日が超過していない
+ *        └ 支払期日が当月
+ *            ├ No.2：支払期日が「月中」・・・リマインド対象
+ *            └ No.3：支払期日が「月末」・・・リマインド対象外（別途バクラク等で管理）
+ * 
+ * ※１：未払い　とは、「支払予約が未完了のもの」を指します
+ * 　-> 支払予約済みだが、支払指定日が到来していない　請求書は「支払済み」としてカウントしています
+ * 　-> バクラクのラベル「支払確認済み」の定義と同じです
+ * 
+ * ※２：月中払い　とは、「支払期日がイレギュラーであるもの」を指します
+ *   -> デフォルトである月末払い分の請求は本スクリプトの対象外です
+ *      
+ * 
+ * 未払請求書の一覧をchatworkへリマインド
+ */
+function verifyPayment() {
+
+  // 「ラベル」のカラム位置を取得する関数を呼び出す
+  const labelColumn = getColumnOfLabel();
+
+  // 月末を取得する
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  Logger.log(endOfMonth);
+
+  // 部分一致の正規表現パターン（「支払確認済み」を含む）
+  const partialMatchPattern = /.*支払確認済み.*/;
+
+  // 以下２条件を同時に満たすデータの配列を格納するための空配列
+  // 　１．未払い（＝ カラム：ラベル　に「支払確認済み」が無い）
+  // 　２．支払期日が当月末ではない（＝ 月中払い）
+  //      ※支払期日が「前月以前の末日」の請求書も対象です
+
+  // 未払　かつ　期限超過　の請求書を格納する配列
+  let overdueInvoices = [];
+
+  // 未払　かつ　月中払い　の請求書を格納する配列
+  let invoicesMidMonth = [];
+
+  // 元データから、No1. 期限超過している請求書 No2. 月中払い請求書を配列へ格納
+  for (value of values) {
+
+    // 支払期日を取得する関数を呼び出す
+    let dueDate = getDueDate(value);
+    // Logger.log('期日：' + dueDate);
+    // Logger.log('今日：' + today);
+
+    // 未払いである（「ラベル」のカラムに「支払確認済み」が含まれていない）
+    if (!value[labelColumn - 1].match(partialMatchPattern)) {
+
+      // （No.1）期限超過
+      if (dueDate < today) {
+        overdueInvoices.push(value);
+
+      } else if (dueDate.getTime() != endOfMonth.getTime()) {
+
+        // （No.2）「支払期日」が当月の月中
+        invoicesMidMonth.push(value);
+      }
+    }
+  }
+
+  // データ転記の関数を呼び出す
+  copyToAnotherSS(overdueInvoices, invoicesMidMonth);
+
+  // chatworkへリマインドを送信
+  sendChatworkMessage();
+}
+
+
+/**
+ * 元データから「支払期日」をDate型で取得する
+ * @param {Array.<values>} dueVal 元データ
+ * @return {date} 支払期日
+ */
+// 元データから「支払期日」をDate型で取得する関数
+function getDueDate(dueVal) {
+
+  // 「支払期日」のカラム位置を取得する関数を呼び出す
+  const tempDueColumn = getColumnOfDueDate();
+
+  let tempDueDate = new Date(dueVal[tempDueColumn - 1]);
+  return tempDueDate;
+}
+
+
+/**
+ * 未払い請求書のデータを、別スプシに転記する
+ * @param {Array.<values>} overdueInvoices 未払い　かつ　支払期日超過　の請求書
+ * @param {Array.<values>} invoicesMidMonth 未払い　かつ　月中払い　の請求書
+ */
+
+function copyToAnotherSS(overdueInvoices, invoicesMidMonth) {
+
+  // 貼付先のスプレッドシートのIDを指定
+  const ss_copyTo = SpreadsheetApp.openById('1Z_nK0MjadYynpc8FVu9gZ_HB5eubxT3bSVSRefE6i48');
+
+  /**
+   * 【期限超過】分のシート操作
+   */
+  // 期限超過のデータを転記するシート
+  const sheetForOverdueInvoices_copyTo = ss_copyTo.getSheetByName('期限超過');
+
+  // 値をクリア
+  clearData(sheetForOverdueInvoices_copyTo);
+
+  // データ転記のための範囲指定
+  const row_1 = overdueInvoices.length;
+  const col_1 = overdueInvoices[0].length;
+
+  // データ転記
+  sheetForOverdueInvoices_copyTo.getRange(2, 1, row_1, col_1).setValues(overdueInvoices);
+
+
+  /**
+   * 【月中払い】分のシート操作
+   */
+  // 月中払いのデータを転記するシート
+  const invoicesMidMonth_copyTo = ss_copyTo.getSheetByName('月中払い');
+
+  // 値をクリア
+  clearData(invoicesMidMonth_copyTo);
+
+  // データ転記のための範囲指定
+  const row_2 = invoicesMidMonth.length;
+  const col_2 = invoicesMidMonth[0].length;
+
+  // データ転記
+  invoicesMidMonth_copyTo.getRange(2, 1, row_2, col_2).setValues(invoicesMidMonth);
+
+  // シート：期限超過　をアクティブにする
+  sheetForOverdueInvoices_copyTo.activate();
+}
+
+/**
+ * 貼付先のデータを削除する
+ * @param {object} sheets_copyTo シート：期限超過　のシートオブジェクト
+ * @param {object} sheets_copyTo シート：月中払い　のシートオブジェクト
+ */
+
+function clearData(sheets_copyTo) {
+
+  // 貼付先シートの最終行と最終列を取得
+  let lastRow = sheets_copyTo.getLastRow();
+  let lastColumn = sheets_copyTo.getLastColumn();
+
+  // クリア対象のシートの2行目以降に値が入っている場合にその値を削除する
+  if (lastRow > 1) {
+    // 各貼付先シートの２行目以降の値を削除
+    sheets_copyTo.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
+  }
+}
+
+/**
+ * 未払請求書の一覧を転記したスプレッドシートを、chatworkへ定期的にリマインド
+ */
+function sendChatworkMessage() {
+
+  //Chatwork API Tokenを定数として定義(自分のAPIトークンをセット)
+  const cwToken = '1a76f62feecd4149bd2e78dcb54f27ba';
+
+  //メッセージを取得したいルームIDを定数として定義
+  const cwRoomId = '331457294';
+
+  // ChatworkAPIクライアント作成
+  const cw = ChatWorkClient.factory({ token: cwToken });
+
+  // メッセージの宛先情報を格納
+  const to_ID = '*******';
+  const to_Name = '*******';
+
+  // メッセージの内容を取得
+  const message =
+    '[info]' + '【定期リマインド】バクラク支払い' + '[/info]' + '\n' +
+    '[hr]' + '\n' +
+    '[To: ' + to_ID + ']' + to_Name + ' さん' + '\n' +
+    'ここにメッセージを入力する'
+    ;
+
+  //ChatworkAPIクライアントからメッセージ投稿
+  cw.sendMessage({
+    room_id: cwRoomId,
+    body: message
+  });
+}
