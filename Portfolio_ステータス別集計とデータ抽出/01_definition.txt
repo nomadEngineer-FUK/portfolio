@@ -1,0 +1,47 @@
+/**
+* プロジェクト全体で管理するための定数管理ファイル
+*/
+
+/**
+ * 操作するスプレッドシートの管理
+ */
+const ss = SpreadsheetApp.getActiveSpreadsheet();
+const sheet = ss.getSheetByName("元データ");
+const summarySheet = ss.getSheetByName('サマリ');
+const masterSheet = ss.getSheetByName('マスタ');
+const remindSheet = ss.getSheetByName('リマインド');
+
+// 編集をしたシート名を取得
+const activeSheet = ss.getActiveSheet();
+const editSheet = activeSheet.getSheetName();
+
+
+/**
+ * 日付を扱うための日付オブジェクト
+ */
+// 本日を取得
+const today = new Date();
+
+// 当月末を取得する
+const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+
+/**
+ * 元データの取得
+ */
+const values = sheet.getDataRange().getValues();
+// 一行目のカラムを配列から削除
+values.shift();
+
+
+/**
+ * 元データ（シート：[貼付]バクラク元データ）のカラムを管理
+ */
+// ヘッダーの行数を取得
+const headerRow = 1;
+
+// 最終列取得
+const lastCol = sheet.getLastColumn();
+
+// ヘッダー行を範囲取得
+const header = sheet.getRange(headerRow, 1, 1, lastCol).getDisplayValues();

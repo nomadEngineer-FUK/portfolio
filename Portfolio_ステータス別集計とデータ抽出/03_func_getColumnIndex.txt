@@ -1,0 +1,84 @@
+
+/**
+ * カラムの位置管理
+ * 1. 申請No
+ * 2. ステータス
+ * 3. 申請チーム
+ * 4. 現在の承認ステップ名
+ * 5. 支払期日
+ * 6. 取引先
+ */
+
+// 1. 申請Noのカラム位置を取得
+function getColumnOfApplyNo() {
+
+  // 項目名の指定
+  const colNameForApplyNo = "申請No";
+
+  // カラム位置を取得
+  const col1 = header[0].indexOf(colNameForApplyNo) + 1;
+
+  // Logger.log(colIndexForApplyNo);
+  return col1;
+}
+
+// 2. ステータスのカラム位置を取
+function getColumnOfStatus() {
+
+  // 項目名の指定
+  const colNameForStatus = "ステータス";
+
+  // カラム位置を取得
+  const col2 = header[0].indexOf(colNameForStatus) + 1;
+  return col2;
+}
+
+// 3. 申請チームのカラム位置を取得
+function getColumnOfApplyTeam() {
+
+  // 項目名の指定
+  const colNameForApplyTeam = "申請チーム";
+
+  // カラム位置を取得
+  const col3 = header[0].indexOf(colNameForApplyTeam) + 1;
+  return col3;
+}
+
+// 4. 現在の承認ステップ名のカラム位置を取得
+function getColumnOfDeptInCharge() {
+
+  // 項目名の指定
+  const colNameForDeptInCharge = "現在の承認ステップ名";
+
+  // カラム位置を取得
+  const col4 = header[0].indexOf(colNameForDeptInCharge) + 1;
+
+  // Logger.log(colNameForDeptInCharge);
+  return col4;
+}
+
+// 5. 支払期日のカラム位置を取得
+function getColumnOfDueDate() {
+
+  // 項目名の指定
+  const colNameForDueDate = "支払期日";
+
+  // カラム位置を取得
+  const col5 = header[0].indexOf(colNameForDueDate) + 1;
+
+  // Logger.log(colIndexForDueDate);
+  return col5;
+}
+
+// 6. 取引先のカラム位置を取得
+function getColumnOfSupplier() {
+
+  // 項目名の指定
+  const colNameForSupplier = "取引先";
+
+  // カラム位置を取得
+  const col6 = header[0].indexOf(colNameForSupplier) + 1;
+
+  // Logger.log(colNameForSupplier);
+  return col6;
+}

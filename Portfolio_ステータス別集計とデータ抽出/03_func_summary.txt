@@ -1,0 +1,161 @@
+/**
+ * シート：サマリ　に関するデータの操作のためのスクリプトファイルです
+ * 
+ * 支払申請の承認が未完了（ステータス＝進行中）のものを抽出する
+ * ※元データの取得が手動のため、それに合わせてchatworkへのリマインドも現時点では手動で実施する
+ * 
+ * @return {array} 承認が未完了の支払申請
+ */
+
+function extractInProgress() {
+
+  // カラム：ステータスのインデックス番号を取得
+  const colIndexForStatus = getColumnOfStatus();
+
+  // 進行中の申請データを格納する配列を作成
+  let arraiesInProgress = [];
+
+  // 全データから、リマインド対象の支払申請を抽出
+  for (value of values) {
+
+    // ステータスを取得
+    let status = value[colIndexForStatus - 1];
+
+    // ステータスが「進行中」のみを抽出
+    if (status == '進行中') {
+
+      arraiesInProgress.push(value);
+    }
+  }
+  // Logger.log(arraiesInProgress);
+
+  return arraiesInProgress;
+}
+
+
+/**
+ * 未承認の支払申請を、カラム：現在の承認ステップ名　別で集計する
+ * 集計結果を、スプレッドシートのシート：サマリに出力する
+ * 
+ * @return {number} 申請チーム別の未承認件数
+ */
+function countByDeptInCharge() {
+  // 【関数】extractInProgress　を実行
+  // 未承認の支払申請を取得
+  let appliesInProgress = extractInProgress();
+
+  // 【関数】getColumnOfDeptInCharge　を実行
+  // カラム：現在の承認ステップ名　のインデックス番号を取得
+  const colIndexForDeptInCharge = getColumnOfDeptInCharge();
+
+  // 担当ステップの一覧を取得
+  const director = 'ディレクターステップ';
+  const personInCharge = '財務経理担当者ステップ';
+  const accountingManager = '財務経理責任者ステップ';
+
+  // 件数カウントのための変数を用意
+  let cnt1 = 0;
+  let cnt2 = 0;
+  let cnt3 = 0;
+
+  // 未承認の支払申請を現在の承認ステップ別に抽出
+  for (applyInProgress of appliesInProgress) {
+
+    // 現在の承認ステップ名　を取得
+    let deptInCharge = applyInProgress[colIndexForDeptInCharge - 1];
+
+    // ディレクターステップ
+    if (deptInCharge == director) {
+      cnt1 = cnt1 + 1;
+
+      // 財務経理担当者ステップ
+    } else if (deptInCharge == personInCharge) {
+      cnt2 = cnt2 + 1;
+
+      // 財務経理責任者ステップ
+    } else if (deptInCharge == accountingManager) {
+      cnt3 = cnt3 + 1;
+    }
+  }
+
+  return { cnt1, cnt2, cnt3 };
+}
+
+
+/**
+ * 未承認の支払申請を、申請チーム　かつ　支払期日　別で集計する
+ * 集計結果を、スプレッドシートのシート：サマリ（D13～G19）に出力する
+ * 　-> 出力先のセルは、申請チームの増減（シート：マスタを手動更新）に合わせて変動します
+ * 
+ * @return {array} 未承認の支払申請を母数として、申請チーム　と　支払期日　
+ */
+
+function countByApplyTeam() {
+
+  // 【関数】extractInProgress　を実行
+  // 未承認の支払申請を取得
+  let appliesInProgress = extractInProgress();
+
+  // 【関数】getColumnOfDueDate　を実行
+  // カラム：支払期日　のインデックス番号を取得
+  const colIndexForDueDate = getColumnOfDueDate();
+
+  // 【関数】getColumnOfDeptInCharge　を実行
+  // カラム：申請チーム　のインデックス番号を取得
+  const colIndexForApplyTeam = getColumnOfApplyTeam();
+
+  // 申請チームマスタを取得
+  let masterOfApplyTeams = masterSheet.getRange("A2:A" + masterSheet.getLastRow()).getValues();
+
+  // 集計項目である申請チーム毎に集計
+  for (masterOfApplyTeam of masterOfApplyTeams) {
+
+    // 件数カウントのための変数を用意
+    let cnt1 = 0; // <1> 支払期日 = 超過
+    let cnt2 = 0; // <2> 支払期日 = 当月の月中
+    let cnt3 = 0; // <3> 支払期日 = 当月末
+    let cnt4 = 0; // <4> 支払期日 = 翌月以降
+
+    // 未承認の支払申請毎にループ処理
+    for (applyInProgress of appliesInProgress) {
+
+      // 未承認の支払申請の「申請チーム」が、マスタ（集計項目）の申請チームと同じ場合に集計
+      if (masterOfApplyTeam == applyInProgress[colIndexForApplyTeam - 1]) {
+
+        // 支払期日を取得
+        let dueDate = new Date(applyInProgress[colIndexForDueDate - 1]);
+
+        // <1> 支払期日が超過している
+        if (dueDate < today) {
+          cnt1 = cnt1 + 1;
+
+          // <2> 支払期日が当月の月中である
+        } else if (dueDate.getTime() < endOfMonth.getTime()) {
+          cnt2 = cnt2 + 1;
+
+          // <3> 支払期日が当月末である
+        } else if (dueDate.getTime() == endOfMonth.getTime()) {
+          cnt3 = cnt3 + 1;
+
+          // <4> 支払期日が翌月以降である
+        } else {
+          cnt4 = cnt4 + 1;
+        }
+      }
+    }
+
+    // 集計項目である申請チームを格納している配列（masterOfApplyTeam(s)）に、上記集計結果を追加
+    masterOfApplyTeam.push(cnt1, cnt2, cnt3, cnt4);
+  }
+  // Logger.log(masterOfApplyTeams);
+
+  // 配列：masterOfApplyTeamsの0番目の要素（部門名）を配列から削除
+  for (masterOfApplyTeam of masterOfApplyTeams) {
+    masterOfApplyTeam.shift();
+  }
+
+  // 下記条件のもと集計した結果をreturn
+  // 1. 未承認である支払申請が集計の対象
+  // 2. 申請チーム　と　支払期日　とでクロス集計　
+  return masterOfApplyTeams;
+}
