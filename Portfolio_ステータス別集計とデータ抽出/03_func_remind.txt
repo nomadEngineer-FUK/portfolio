@@ -1,128 +1,61 @@
 /**
- * シート：リマインド　に関するデータの操作のためのスクリプトファイルです
+ * 進行中の支払申請（※１）をオブジェクト化（appliesInProgress）して取得（【関数】extractInProgress　の実行）
+ *    ※１：ステータス = 進行中
  * 
- * リマインド対象の支払申請を、申請チーム別に抽出しスプレッドシートへ出力
- * 出力先はシート：リマインドのC列
- * 出力する情報は、支払申請No　と　取引先
- * ※元データの取得が手動のため、それに合わせてchatworkへのリマインドも現時点では手動で実施を想定しています
+ * リマインド対象の支払申請を、進行中の支払申請のオブジェクトから取得（※２）
+ *    ※２：進行中の申請のうち、現在の承認ステップ名 ＝ ディレクターステップ　であるもの
+ * 
+ * 集計する部門（以降、申請チーム　と呼びます）をシート：マスタ　から2次元配列にて取得（masterOfApplyTeams）
+ * 申請チームをfor-ofでループ処理
+ * 
+ * リマインド対象の支払申請オブジェクトが保有する値をループ処理
+ * オブジェクトが持つ申請チーム　と　集計のための申請チーム（masterOfApplyTeams）が一致する時、
+ * リマインド用の変数（combinedChar）に、対象となる申請Noと取引先を格納
+ * 一つの申請チーム分の処理が完了したら、リマインド用変数をスプレッドシートへ出力（※３）する
+ *    ※３：シート：リマインド　のC列
  */
 
-function extractDetailOfApply() {
+function extractRemindInfo() {
 
-  // 出力先のセルの値をクリア
-  // クリア対象のセル（シート：リマインド　のC列）の最終行を取得（C列は空欄のためA列の最終行を取得）
-  const lastRowInRemSheet = remindSheet.getRange(1, 1).getNextDataCell(SpreadsheetApp.Direction.DOWN).getRow();
-  remindSheet.getRange("C2:C" + lastRowInRemSheet).clearContent();
-
-  // 【関数】verfyPresenceOfRemind　を実行
-  // リマインド対象の支払申請を、申請チームごとに取得
-  let newArray = verfyPresenceOfRemind();
-  // Logger.log(newArray);
-
-  // マスタから申請チームを取得
-  let masterOfApplyTeams = masterSheet.getRange("A2:A" + masterSheet.getLastRow()).getValues();
-
-  // リマインド対象の支払申請（newArray）をループ処理
-  for (let val of newArray) {
-    // Logger.log(val[1]);
-
-    // リマインド対象の支払申請が無い場合（val[1] = 空欄）は、ループ処理をスキップ
-    if (val[1] == '') {
-      continue;
-    }
-
-    // リマインド対象の支払申請がある場合
-    for (masterOfApplyTeam of masterOfApplyTeams) {
-
-      // マスタ（出力先）とリマインド対象の申請チームが同じ場合
-      if (masterOfApplyTeam == val[0]) {
-
-        // リマインド対象の配列の先頭の要素（部門名）を削除
-        // 最後に出力する際の文字列から「部門名」を除くため
-        val.shift();
-        // Logger.log(val);
-
-        // リマインド対象の支払申請がある場合
-        if (val.length > 0) {
-
-          // その支払申請情報（支払申請No. と　取引先）を申請チームの配列に追加
-          masterOfApplyTeam.push(val);
-        }
-      }
-    }
-    // Logger.log(val);
-    // Logger.log(masterOfApplyTeams.indexOf(masterOfApplyTeam));
-
-    // スプレッドシートへ出力
-    remindSheet.getRange(newArray.indexOf(val) + 2, 3).setValue(val);
-  }
-}
-
-
-/**
- * リマインド対象となる支払申請（※１）を抽出
- * （※１）ディレクターが未承認の支払申請のこと。（下記２条件を同時に満たす場合）
- * 　└ カラム：ステータス          ＝ 進行中
- * 　└ カラム：現在の承認ステップ名 ＝ ディレクターステップ
- * 
- * 申請チーム別で抽出
- * 
- * @return {array} 各申請チームとリマインド対象の支払申請
- */
-
-function verfyPresenceOfRemind() {
-
-  // 【関数】extractInProgress　を実行
-  // 未承認の支払申請を取得
-  let appliesInProgress = extractInProgress();
+  // 【関数】extractInProgress　を実行（該当関数はファイル：03_func_manageData.gs）
+  // 未承認の支払申請をオブジェクトで取得
+  const appliesInProgress = extractInProgress();
 
   // 担当ステップ = ディレクターステップ を取得
   const director = 'ディレクターステップ';
 
   // ディレクターが未承認の支払申請を取得
-  let appliesInDirector = appliesInProgress.filter(array => array.indexOf(director) !== -1);
+  const appliesInDirector = appliesInProgress.filter(record => record['現在の承認ステップ名'] == director);
   // Logger.log(appliesInDirector);
 
-  const colIndexForApplyTeam = getColumnOfApplyTeam();   // カラム：申請チーム　のインデックス番号を取得
-  const colIndexForApplyNo   = getColumnOfApplyNo();     // カラム：申請No.    のインデックス番号を取得
-  const colIndexForSupplier  = getColumnOfSupplier();    // カラム：取引先　　　のインデックス番号を取得
-
-  // マスタから申請チームを取得
-  let masterOfApplyTeams = masterSheet.getRange("A2:A" + masterSheet.getLastRow()).getValues();
-
-  // 集計項目である申請チーム毎に集計
+  // 集計項目である申請チーム毎にループ処理
   for (masterOfApplyTeam of masterOfApplyTeams) {
 
-    // リマインドとして出力する用の文言列を用意
+    // リマインドとして出力するための文言を格納する変数を用意
     let combinedChar = '';
 
-    // ディレクターが未承認の支払申請毎にループ処理
-    for (applyInDirector of appliesInDirector) {
+    // リマインド対象の支払申請を順にループ処理
+    for (const value of Object.values(appliesInDirector)) {
 
-      // 未承認の支払申請の「申請チーム」が、マスタ（集計項目）の申請チームと同じ場合
-      if (masterOfApplyTeam[0] == applyInDirector[colIndexForApplyTeam - 1]) {
+      // リマインド対象の支払申請の「申請チーム」が、マスタ（集計項目）の申請チームと同じ場合
+      if (masterOfApplyTeam == value['申請チーム']) {
 
         // 支払申請No　と　取引先　を取得
-        let val1 = 'No.' + applyInDirector[colIndexForApplyNo - 1];
-        let val2 = '：' + applyInDirector[colIndexForSupplier - 1];
+        let val1 = 'No.' + value['申請No'];
+        let val2 = '：' + value['取引先'];
 
         // 出力用に文字列を結合（結合するごとに改行する）
         combinedChar = combinedChar + val1 + val2 + '\n';
       }
     }
+    // Logger.log(masterOfApplyTeam);
 
-    // 出力用の文字列の最後に改行が入っているので、それを削除
+    // 出力用の文字列の最後に改行が入っているので、その改行を削除
     if (combinedChar.slice(-1) === '\n') {
       combinedChar = combinedChar.slice(0, -1);
     }
-    // Logger.log(combinedChar);
 
-    // リマインド用の配列（＝申請チームマスタ）に追加
-    masterOfApplyTeam.push(combinedChar);
+    // スプレッドシートへ出力
+    remindSheet.getRange(masterOfApplyTeams.indexOf(masterOfApplyTeam) + 2, 3).setValue(combinedChar);
   }
-
-  // リマインド用の配列と申請チームマスタが同じ（masterOfApplyTeams）であるため、他の関数を使用する際に紛らわしいので新しい関数へ移行
-  let newArray = masterOfApplyTeams;
-
-  return newArray;
 }

@@ -1,9 +1,14 @@
 /**
- * シート：元データ　が編集されたら関数：executeAllFuncを実行する
+ * 【トリガー】シート：[貼付用]支払申請　が編集された時
+ * 【実行結果】関数：executeAllFunc（スプレッドシートへ値を出力するための関数）を実行する
+ * 
+ * 実行するタイミングは定例的なものではなく、シート：[貼付用]支払申請　が変更された時　に設定しています。
+ * 理由は、バクラク（申請・経費精算）がAPI連携しておらず、データの取得が手動になるためです。
+ * 本関数の実行を定例・自動化すると、元データが古い状態にて集計・リマインドをする可能性があるためこのトリガーを設定しています。（2024年3月4日時点）
  */
 
 function execute() {
-  // 編集されたシートが、「元データ」の場合
+  // 編集されたシートが、「[貼付]バクラク元データ」の場合
   if (editSheet == sheet.getSheetName()) {
 
     // 【関数】executeAllFunc　を実行する
@@ -13,16 +18,29 @@ function execute() {
 
 
 /**
- * 本プロジェクトにて実装した関数を実行するためのトリガーをまとめて管理
+ * 【トリガー】関数：execute　が実行された時（= シート：[貼付用]支払申請　に変更が加えられた時）
+ * 【実行結果】
+ *    ★実行１★　未承認の支払申請の数を、担当ステップ別（ディレクター、経理担当者、経理責任者）で出力する
+ *    ★実行３★　
+ *    ★実行３★　
+ * 
+ * 本関数は、スプレッドシートへの出力を伴う関数を呼び出すためのものです。
  */
 function executeAllFunc() {
 
   /**
-   * 【実行結果】未承認の支払申請を、担当ステップ別（ディレクター、経理担当者、経理責任者）で出力する
+   * ★実行１★
+   * 【実行結果】未承認の支払申請の数を、承認ステップ別（ディレクター、経理担当者、経理責任者）で出力する
    * 【出力場所】シート：サマリ　の 現在の承認ステップ名（C5～C7セル）
    * 【関数保管ファイル】03_func_summary.gs
+   * 
+   * @param {number} cnt1, cnt2, cnt3 - 進行中の申請件数 （[cnt1]ディレクターステップ  [cnt2]財務経理担当者ステップ  [cnt3]財務経理責任者ステップ）
    */
+  // 出力先の値を削除
+  summarySheet.getRange("C5:C7").clearContent();
+
   // 【関数】countByDeptInCharge　を実行
+  // 承認ステップ別の進行中の申請件数
   const { cnt1, cnt2, cnt3 } = countByDeptInCharge();
 
   // 集計結果をスプレッドシートへ出力
@@ -32,28 +50,42 @@ function executeAllFunc() {
 
 
   /**
+   * ★実行２★
    * 【実行結果】未承認の支払申請を母数として、申請チーム　と　支払期日　とでクロス集計し、その結果をスプレッドシートへ出力する
-   * 【出力場所】シート：サマリ　の 申請チーム（D12～G18セル） 
+   * 【出力場所】シート：サマリ　の 申請チーム（D12～G18セル） （※１）
    * 【関数保管ファイル】03_func_summary.gs
+   * 
+   * ※１：出力先の行数（部門数）は、申請チームの増減（シート：マスタを手動更新）に合わせて変動します
    */
+  // 出力先の値を削除
+  summarySheet.getRange("D12:G").clearContent();
+
   // 【関数】countByApplyTeam　を実行
-  const applyTeams = countByApplyTeam();
+  // 申請チーム　と　支払期日　とでクロス集計した結果を取得
+  const countAppliesInProgress = countByApplyTeam();
 
   // applyTeamsをスプレッドシートへ出力
-  summarySheet.getRange(12, 4, applyTeams.length, 4).setValues(applyTeams);
+  summarySheet.getRange(12, 4, countAppliesInProgress.length, 4).setValues(countAppliesInProgress);
+
 
 
   /**
-   * 【実行結果】リマインド対象の支払申請（※１）の申請データを、申請チーム別に出力する
+   * ★実行３★
+   * 【実行結果】リマインド対象の支払申請（※２）の申請データを、申請チーム別に出力する
    * 【出力場所】シート：リマインド　の   申請No：取引先（C2～C8セル）
    * 【関数保管ファイル】03_func_remind.gs
    * 
-   * ※１：リマインド対象の支払申請
+   * ※２：リマインド対象の支払申請
    *   ディレクターが未承認の支払申請のこと。（下記２条件を同時に満たす場合）
    * 　  └ カラム：ステータス          ＝ 進行中
    * 　  └ カラム：現在の承認ステップ名 ＝ ディレクターステップ
    */
+  // 出力先のセルの値をクリア
+  // クリア対象のセル（シート：リマインド　のC列）の最終行を取得（C列は空欄のためA列で最終行を取得）
+  const lastRowInRemSheet = remindSheet.getRange(1, 1).getNextDataCell(SpreadsheetApp.Direction.DOWN).getRow();
+  remindSheet.getRange("C2:C" + lastRowInRemSheet).clearContent();
 
-  // 呼び出し元の関数にて出力まで完結
-  extractDetailOfApply();
+  // 【関数】extractRemindInfo　を実行
+  // 呼び出し先の関数にて、スプレッドシートへ出力
+  extractRemindInfo();
 }

@@ -1,20 +1,28 @@
 /**
-* プロジェクト全体で管理するための定数管理ファイル
+* プロジェクト全体で使用する定数を管理
 */
 
 /**
- * 操作するスプレッドシートの管理
+ * 操作するシートの管理
  */
 const ss = SpreadsheetApp.getActiveSpreadsheet();
-const sheet = ss.getSheetByName("元データ");
+const sheet = ss.getSheetByName("[貼付用]支払申請");
 const summarySheet = ss.getSheetByName('サマリ');
-const masterSheet = ss.getSheetByName('マスタ');
 const remindSheet = ss.getSheetByName('リマインド');
+const masterSheet = ss.getSheetByName('マスタ');
 
 // 編集をしたシート名を取得
 const activeSheet = ss.getActiveSheet();
 const editSheet = activeSheet.getSheetName();
 
+/**
+ * データの取得
+ */
+// シート：[貼付用]支払申請　から全データを取得
+const values = sheet.getDataRange().getValues();
+
+// シート：マスタ　から、申請チームを取得
+const masterOfApplyTeams = masterSheet.getRange("A2:A" + masterSheet.getLastRow()).getValues();
 
 /**
  * 日付を扱うための日付オブジェクト
@@ -24,24 +32,3 @@ const today = new Date();
 
 // 当月末を取得する
 const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-
-/**
- * 元データの取得
- */
-const values = sheet.getDataRange().getValues();
-// 一行目のカラムを配列から削除
-values.shift();
-
-
-/**
- * 元データ（シート：[貼付]バクラク元データ）のカラムを管理
- */
-// ヘッダーの行数を取得
-const headerRow = 1;
-
-// 最終列取得
-const lastCol = sheet.getLastColumn();
-
-// ヘッダー行を範囲取得
-const header = sheet.getRange(headerRow, 1, 1, lastCol).getDisplayValues();

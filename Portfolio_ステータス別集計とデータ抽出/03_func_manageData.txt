@@ -1,0 +1,28 @@
+/**
+ * 支払申請が進行中（３段階の承認ステップのどこかで止まっている）の申請を抽出する
+ * 抽出した申請データは全てオブジェクト化（※）する
+ * 
+ * ※オブジェクト化したデータ（appliesInProgress）
+ *   └ プロパティ名・・・カラム名
+ *   └ 値・・・・・・・・セル内容
+ * 
+ * @ reteurn {array} ステータス＝進行中）　オブジェクト化した全データ
+ */
+
+function extractInProgress() {
+
+  // 1行目のカラムをheadersに格納
+  const header = values[0];
+  // Logger.log(header);
+
+  const appliesInProgress = values.filter(array => array.indexOf('進行中') !== -1).map(
+    record => record.reduce((acc, value, index) => {
+      acc[header[index]] = value;
+
+      return acc;
+    }, {})
+  );
+  // Logger.log(appliesInProgress);
+
+  return appliesInProgress;
+}
