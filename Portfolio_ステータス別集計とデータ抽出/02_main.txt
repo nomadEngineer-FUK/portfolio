@@ -59,14 +59,14 @@ function executeAllFunc() {
    * ※１：出力先の行数（部門数）は、申請チームの増減（シート：マスタを手動更新）に合わせて変動します
    */
   // 出力先の値を削除
-  summarySheet.getRange("D12:G").clearContent();
+  summarySheet.getRange("D13:G").clearContent();
 
   // 【関数】countByApplyTeam　を実行
   // 申請チーム　と　支払期日　とでクロス集計した結果を取得
   const countAppliesInProgress = countByApplyTeam();
 
   // applyTeamsをスプレッドシートへ出力
-  summarySheet.getRange(12, 4, countAppliesInProgress.length, 4).setValues(countAppliesInProgress);
+  summarySheet.getRange(13, 4, countAppliesInProgress.length, 4).setValues(countAppliesInProgress);
 
 
 
