@@ -21,8 +21,8 @@ function execute() {
  * 【トリガー】関数：execute　が実行された時（= シート：[貼付用]支払申請　に変更が加えられた時）
  * 【実行結果】
  *    ★実行１★　未承認の支払申請の数を、担当ステップ別（ディレクター、経理担当者、経理責任者）で出力する
- *    ★実行３★　
- *    ★実行３★　
+ *    ★実行３★　未承認の支払申請を母数として、申請チーム　と　支払期日　とでクロス集計し、その結果をスプレッドシートへ出力する
+ *    ★実行３★　リマインド対象の支払申請の申請データを、申請チーム別に出力する
  * 
  * 本関数は、スプレッドシートへの出力を伴う関数を呼び出すためのものです。
  */
@@ -41,12 +41,13 @@ function executeAllFunc() {
 
   // 【関数】countByDeptInCharge　を実行
   // 承認ステップ別の進行中の申請件数
-  const { cnt1, cnt2, cnt3 } = countByDeptInCharge();
+  const { cnt1, cnt2, cnt3 ,cnt4} = countByDeptInCharge();
 
   // 集計結果をスプレッドシートへ出力
   summarySheet.getRange("C5").setValue(cnt1);
   summarySheet.getRange("C6").setValue(cnt2);
   summarySheet.getRange("C7").setValue(cnt3);
+  summarySheet.getRange("C8").setValue(cnt4);
 
 
   /**
@@ -76,9 +77,9 @@ function executeAllFunc() {
    * 【関数保管ファイル】03_func_remind.gs
    * 
    * ※２：リマインド対象の支払申請
-   *   ディレクターが未承認の支払申請のこと。（下記２条件を同時に満たす場合）
+   *   マネージャーもしくはディレクターが未承認の支払申請のこと。（下記２条件を同時に満たす場合）
    * 　  └ カラム：ステータス          ＝ 進行中
-   * 　  └ カラム：現在の承認ステップ名 ＝ ディレクターステップ
+   * 　  └ カラム：現在の承認ステップ名 ＝ マネージャー or ディレクターステップ
    */
   // 出力先のセルの値をクリア
   // クリア対象のセル（シート：リマインド　のC列）の最終行を取得（C列は空欄のためA列で最終行を取得）

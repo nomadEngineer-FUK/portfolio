@@ -19,27 +19,31 @@ function countByDeptInCharge() {
   const appliesInProgress = extractInProgress();
 
   // 件数カウントのための変数をそれぞれ用意
-  // cnt1：ディレクターステップ
-  // cnt2：財務経理担当者ステップ
-  // cnt3：財務経理責任者ステップ
-  let [cnt1, cnt2, cnt3] = [0, 0, 0]
+  // cnt1：マネージャーステップ
+  // cnt2：ディレクターステップ
+  // cnt3：財務経理担当者ステップ
+  // cnt4：財務経理責任者ステップ
+  let [cnt1, cnt2, cnt3, cnt4] = [0, 0, 0, 0]
 
   // 進行中の支払申請をループ処理
   for (const value of Object.values(appliesInProgress)) {
 
-    // 3段階の承認ステップ別でカウント
-    if (value["現在の承認ステップ名"] == 'ディレクターステップ') {
+    // 4段階の承認ステップ別でカウント
+    if (value["現在の承認ステップ名"] == 'マネージャーステップ') {
       cnt1 = cnt1 + 1
 
-    } else if ((value["現在の承認ステップ名"] == '財務経理担当者ステップ')) {
+    } else if ((value["現在の承認ステップ名"] == 'ディレクターステップ')) {
       cnt2 = cnt2 + 1;
 
-    } else if ((value["現在の承認ステップ名"] == '財務経理責任者ステップ')) {
+    } else if ((value["現在の承認ステップ名"] == '財務経理担当者ステップ')) {
       cnt3 = cnt3 + 1;
+
+    } else if ((value["現在の承認ステップ名"] == '財務経理責任者ステップ')) {
+      cnt4 = cnt4 + 1;
     }
   }
 
-  return { cnt1, cnt2, cnt3 };
+  return { cnt1, cnt2, cnt3, cnt4 };
 }
 
 

@@ -21,8 +21,14 @@ function extractRemindInfo() {
   // 未承認の支払申請をオブジェクトで取得
   const appliesInProgress = extractInProgress();
 
-  // 担当ステップ = ディレクターステップ を取得
+  // 担当ステップ を取得
+  // 財務経理担当者・責任者はリマインドは不要なので対象外
+  const manager = 'マネージャーステップ';
   const director = 'ディレクターステップ';
+
+  // マネージャーが未承認の支払申請を取得
+  const appliesInManager = appliesInProgress.filter(record => record['現在の承認ステップ名'] == manager);
+  // Logger.log(appliesInDirector);
 
   // ディレクターが未承認の支払申請を取得
   const appliesInDirector = appliesInProgress.filter(record => record['現在の承認ステップ名'] == director);
@@ -31,10 +37,25 @@ function extractRemindInfo() {
   // 集計項目である申請チーム毎にループ処理
   for (masterOfApplyTeam of masterOfApplyTeams) {
 
-    // リマインドとして出力するための文言を格納する変数を用意
-    let combinedChar = '';
+    // リマインドとして出力するための文言を格納する変数をマネージャー・ディレクター用それぞれ用意
+    let [remindForManager, remindForDirector] = ['', ''];
 
-    // リマインド対象の支払申請を順にループ処理
+    // マネージャーステップのリマインド対象の支払申請を順にループ処理
+    for (const value of Object.values(appliesInManager)) {
+
+      // リマインド対象の支払申請の「申請チーム」が、マスタ（集計項目）の申請チームと同じ場合
+      if (masterOfApplyTeam == value['申請チーム']) {
+
+        // 支払申請No　と　取引先　を取得
+        let val1 = 'No.' + value['申請No'];
+        let val2 = '：' + value['取引先'];
+
+        // 出力用に文字列を結合（結合するごとに改行する）
+        remindForManager = remindForManager + val1 + val2 + '\n';
+      }
+    }
+
+    // ディレクターステップのリマインド対象の支払申請を順にループ処理
     for (const value of Object.values(appliesInDirector)) {
 
       // リマインド対象の支払申請の「申請チーム」が、マスタ（集計項目）の申請チームと同じ場合
@@ -45,17 +66,23 @@ function extractRemindInfo() {
         let val2 = '：' + value['取引先'];
 
         // 出力用に文字列を結合（結合するごとに改行する）
-        combinedChar = combinedChar + val1 + val2 + '\n';
+        remindForDirector = remindForDirector + val1 + val2 + '\n';
       }
     }
     // Logger.log(masterOfApplyTeam);
 
-    // 出力用の文字列の最後に改行が入っているので、その改行を削除
-    if (combinedChar.slice(-1) === '\n') {
-      combinedChar = combinedChar.slice(0, -1);
+    // マネージャー向け出力用の文字列の最後に改行が入っているので、その改行を削除
+    if (remindForManager.slice(-1) === '\n') {
+      remindForManager = remindForManager.slice(0, -1);
+    }
+
+    // ディレクター向け出力用の文字列の最後に改行が入っているので、その改行を削除
+    if (remindForDirector.slice(-1) === '\n') {
+      remindForDirector = remindForDirector.slice(0, -1);
     }
 
     // スプレッドシートへ出力
-    remindSheet.getRange(masterOfApplyTeams.indexOf(masterOfApplyTeam) + 2, 3).setValue(combinedChar);
+    remindSheet.getRange(masterOfApplyTeams.indexOf(masterOfApplyTeam) + 2, 3).setValue(remindForManager);
+    remindSheet.getRange(masterOfApplyTeams.indexOf(masterOfApplyTeam) + 2, 5).setValue(remindForDirector);
   }
 }
