@@ -31,7 +31,7 @@ function exportToPDF() {
     // ファイル名を設定してフォルダにPDFファイルを出力する
     DriveApp.getFolderById(folderId).createFile(blob.setName(fileName));
     // 出力完了メッセージを表示
-    Browser.msgBox(`このスプレッドシートと同じフォルダに「${fileName}」を出力しました。`);
+    Browser.msgBox(`指定したフォルダに「${fileName}」を出力しました。`);
   } catch (e) {
     Browser.msgBox(`PDF出力に失敗しました\\n${e.message}`);
   }
