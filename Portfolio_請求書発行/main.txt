@@ -1,0 +1,101 @@
+/**
+ * ファイル・シートをグローバルで定義
+ */
+const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+const sheetOfInput = spreadsheet.getSheetByName("入力");
+const sheetOfInvoice = spreadsheet.getSheetByName("請求書");
+const sheetOfInvoiceWithExpense = spreadsheet.getSheetByName("請求書(経費込)");
+
+
+/**
+ * PDFで出力する
+ */
+function exportToPDF() {
+  try {
+    /** @type {string} PDF出力用URL. */
+    const url = createUrlForPdf(spreadsheet);
+    /** @type {string} ユーザーのOAuth2.0アクセストークン */
+    const token = ScriptApp.getOAuthToken();
+    // URLからblobデータを取得する
+    const blob = UrlFetchApp.fetch(url, { headers: { 'Authorization': 'Bearer ' + token } }).getBlob();
+
+
+
+    // PDFをスプレッドシートと同じフォルダに出力するためにフォルダIDを取得する.
+    // const folderId = getFolderIdBySpreadsheet(spreadsheet);
+    const folderURL = sheetOfInput.getRange("C39").getValue().toString();
+    const folderId = folderURL.split('folders/')[1];
+
+    // PDFのファイル名を作成する.
+    const fileName = createPdfFileName();
+    // ファイル名を設定してフォルダにPDFファイルを出力する
+    DriveApp.getFolderById(folderId).createFile(blob.setName(fileName));
+    // 出力完了メッセージを表示
+    Browser.msgBox(`このスプレッドシートと同じフォルダに「${fileName}」を出力しました。`);
+  } catch (e) {
+    Browser.msgBox(`PDF出力に失敗しました\\n${e.message}`);
+  }
+}
+
+/**
+ * PDF出力用のURLを作成する
+ * 立替経費の精算有無によって、対象となるシートを分岐（シート：入力　の　セル：C30　にチェックがある＝立替経費の精算あり）
+ * 
+ * @param {Spreadsheet} 出力対象のスプレッドシート.
+ */
+function createUrlForPdf(spreadsheet) {
+  let gID = sheetOfInvoice.getSheetId();
+
+  const expense = sheetOfInput.getRange("C30").getValue();
+  Logger.log(expense);
+
+  // 立替経費の精算を含む場合、出力する対象のスプレッドシートのIDを上書き
+  if (expense === true) {
+    gID = sheetOfInvoiceWithExpense.getSheetId();
+  }
+
+  const params = {
+    'exportFormat': 'pdf',
+    'format': 'pdf',
+    'gid': gID, // シート名を指定して出力対象シートのIDを指定
+    'size': 'A4', // 用紙サイズ:A4
+    'portrait': true, // 用紙向き:縦
+    'fitw': true, // 幅を用紙に合わせる
+    'horizontal_alignment': 'CENTER', // 水平方向:中央
+    'gridlines': false, // グリッドライン:非表示
+  }
+
+
+  const query = Object.keys(params).map(function (key) {
+    return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+  }).join('&');
+
+  return `https://docs.google.com/spreadsheets/d/${spreadsheet.getId()}/export?${query}`;
+}
+
+
+/** 
+ * PDFファイル用のファイル名を作成する
+ * @return {string} 出力するPDFのファイル名
+ */
+function createPdfFileName() {
+
+  // 請求内容・宛先・自社名を取得
+  const details = sheetOfInput.getRange("G18").getValue();
+  const supplier = sheetOfInput.getRange("G13").getValue();
+  const myCompany = sheetOfInput.getRange("G7").getValue();
+
+  return "請求書_" + myCompany + "_" + details + "_" + supplier + "御中.pdf";
+}
+
+/**
+ * スプレッドシートが格納されているフォルダのIDを取得する
+ * @param {Spreadsheet} 対象のスプレッドシート
+ * @return {string} 本スプレッドシートが保管されているフォルダのID
+ */
+function getFolderIdBySpreadsheet(spreadsheet) {
+  const parents = DriveApp.getFileById(spreadsheet.getId()).getParents();
+  const folder = parents.next();
+
+  return folder.getId();
+}
